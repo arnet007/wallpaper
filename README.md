@@ -86,25 +86,23 @@ Install a cascading "Change Desktop Wallpaper" menu on your desktop background:
 double-click install_context_menu.bat
 ```
 
-Menu structure (added via the Windows CommandStore so flyouts render properly):
+Menu structure:
 
 ```
 Change Desktop Wallpaper
-├─ ▸ Facebook
-│     ├─ Next Facebook Wallpaper
-│     ├─ Facebook Status
-│     ├─ Re-scrape Facebook (High-Res)
-│     ├─ Open Downloaded Wallpapers
-│     └─ Edit Facebook Profiles (profiles.txt)
-└─ ▸ SantaBanta
-      ├─ Next SantaBanta (Random)
-      ├─ Cars / Nature / Outdoors / Bollywood
-      ├─ SantaBanta Status
-      ├─ Open Downloaded Wallpapers
-      └─ Edit SantaBanta Categories (categories.txt)
+├─ Next Facebook Wallpaper
+├─ Facebook Status
+├─ Re-scrape Facebook (High-Res)
+├─ Open Facebook Wallpapers
+├─ Edit Facebook Profiles (profiles.txt)
+├─ Next SantaBanta (Random)
+├─ SantaBanta - Cars / Nature / Outdoors / Bollywood
+├─ SantaBanta Status
+├─ Open SantaBanta Wallpapers
+└─ Edit SantaBanta Categories (categories.txt)
 ```
 
-> **Note:** Status & Re-scrape commands open a visible terminal window so you can read the output. Everything else runs silently via `run_visible.vbs` / `run_silent.vbs`.
+> **Note:** Status & Re-scrape commands open a visible terminal window so you can read the output. Wallpaper actions run silently via `run_silent.vbs`.
 
 Remove the menu anytime with `uninstall_context_menu.bat`.
 
