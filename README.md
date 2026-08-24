@@ -48,7 +48,7 @@ cd facebook
 node wallpaper.js --login
 
 # 2. Add profile URLs to facebook\profiles.txt (one per line)
-#    e.g. https://www.facebook.com/rajnandinideyrj/photos
+#    e.g. https://www.facebook.com/yourprofile/photos
 
 # 3. Set your next wallpaper
 node wallpaper.js
