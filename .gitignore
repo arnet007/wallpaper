@@ -1,0 +1,37 @@
+# --- Agent / editor metadata ---
+.agents/
+
+# --- Sensitive / credentials (NEVER commit) ---
+cookies.json
+facebook/cookies.json
+
+# --- Dependencies ---
+node_modules/
+**/node_modules/
+
+# --- Runtime data & downloaded wallpapers ---
+wallpapers/
+**/wallpapers/
+*.jpg
+*.jpeg
+*.png
+*.bmp
+
+# --- Chrome temp profiles & DB temp files ---
+.chrome-*/
+.chrome-session*/
+*.tmp
+
+# --- Databases with local runtime state ---
+wallpapers_db.json
+**/wallpapers_db.json
+**/universal_db.json
+
+# --- Logs & OS ---
+*.log
+Thumbs.db
+Desktop.ini
+
+# --- Env / local config ---
+.env
+.env.local

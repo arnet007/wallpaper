@@ -1,0 +1,13 @@
+# SantaBanta Wallpaper Categories & Celebrity Galleries
+# You can add full SantaBanta gallery URLs or names (e.g. pooja-hegde)
+# One entry per line. Lines starting with # are ignored.
+
+https://santabanta.com/wallpapers/indian-celebrities-f/pooja-hegde/
+https://santabanta.com/wallpapers/indian-celebrities-f/pratibha-ranta/
+https://santabanta.com/wallpapers/indian-celebrities-f/ananya-panday/
+https://santabanta.com/wallpapers/nature/universe/
+https://santabanta.com/wallpapers/cars/bmw/
+
+https://santabanta.com/wallpapers/indian-celebrities-f/alia-bhatt/
+
+https://santabanta.com/wallpapers/sports/alexa-bliss/
