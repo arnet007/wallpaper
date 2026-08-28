@@ -1,8 +1,8 @@
 # 🖼️ Wallpaper Changer Suite
 
-Turn your Windows desktop into an automatic wallpaper rotator using photos from **Instagram (AnonyIG)**, **Facebook profiles**, **SantaBanta galleries**, and **4kwallpapers.com**.
+Turn your Windows desktop into an automatic wallpaper rotator using photos from **Instagram (AnonyIG)**, **Facebook profiles**, **SantaBanta galleries**, **4kwallpapers.com**, and **Wallhere.com**.
 
-The repo contains four independent, self-contained projects:
+The repo contains five independent, self-contained projects:
 
 | Project | Directory | What it does |
 | :--- | :--- | :--- |
@@ -10,7 +10,7 @@ The repo contains four independent, self-contained projects:
 | **Facebook Wallpaper Changer** | [`facebook/`](./facebook) | Scrapes high-resolution photos from Facebook profiles, cycles them as your wallpaper, and auto re-scrapes every 7 days. |
 | **SantaBanta Wallpaper Changer** | [`santabanta/`](./santabanta) | Downloads full-HD wallpapers from SantaBanta — both targeted (celebrity/category) and universal random mode. |
 | **4K Wallpapers Nature Changer** | [`4kwallpapers/`](./4kwallpapers) | Downloads a random true-4K wallpaper from the 4kwallpapers.com Nature category and sets it as your wallpaper. |
-| **Wallhere Wallpaper Changer** | [`wallhere/`](./wallhere) | Fetches random wallpapers from Wallhere.com, processes them for desktop use (portrait/landscape handling), and sets them as your wallpaper. |
+| **Wallhere Wallpaper Changer** | [`wallhere/`](./wallhere) | Fetches high-resolution wallpapers (random, topic search, popular) from Wallhere.com, formats with widescreen blur side-fills, and rotates desktop wallpapers. |
 
 ---
 
@@ -51,6 +51,15 @@ wallpaper/
 │   ├── run_wallpaper.bat      #   Double-click launcher
 │   ├── run_silent.vbs         #   Silent launcher (Task Scheduler)
 │   ├── test/                  #   15 unit tests (node:test)
+│   └── README.md
+├── wallhere/                  # Wallhere.com project (self-contained)
+│   ├── wallhere.js            #   Main CLI (random, search keyword, popular, status…)
+│   ├── scraper.js             #   Axios/Cheerio scraper for Wallhere detail & master images
+│   ├── db.js                  #   JSON tracking database
+│   ├── image_processor_wallhere.js # sharp widescreen blur side-fills & cover scaling
+│   ├── run_wallpaper.bat      #   Double-click launcher
+│   ├── run_silent.vbs         #   Silent launcher (context menu / scheduler)
+│   ├── run_visible.vbs        #   Visible console launcher (status)
 │   └── README.md
 ├── install_context_menu.bat   # 🖱️ Install "Change Desktop Wallpaper" right-click menu
 ├── uninstall_context_menu.bat # 🖱️ Uninstall the right-click menu
@@ -133,6 +142,30 @@ See [`4kwallpapers/README.md`](./4kwallpapers/README.md) for details.
 
 ---
 
+## 🚀 Quick Start (Wallhere)
+
+```powershell
+# 1. Random high-resolution wallpaper
+cd wallhere
+npm install        # one-time
+node wallhere.js
+
+# 2. Search wallpapers by keyword/topic
+node wallhere.js cyberpunk
+node wallhere.js anime
+node wallhere.js nature
+
+# 3. Popular wallpapers
+node wallhere.js --popular
+
+# 4. View stats / cycle count
+node wallhere.js --status
+```
+
+See [`wallhere/README.md`](./wallhere/README.md) for details.
+
+---
+
 ## 🖱️ Right-Click Desktop Context Menu
 
 Install a cascading "Change Desktop Wallpaper" menu on your desktop background:
@@ -145,7 +178,7 @@ Menu structure:
 
 ```text
 Change Desktop Wallpaper
-├─ Next Instagram Wallpaper (AnonyIG)
+├─ Next Instagram Wallpaper
 ├─ Instagram Status
 ├─ Re-scrape Instagram (AnonyIG)
 ├─ Open Instagram Wallpapers
@@ -160,9 +193,11 @@ Change Desktop Wallpaper
 ├─ SantaBanta - Bollywood / Cars / Nature / Outdoors
 ├─ SantaBanta Status
 ├─ Open SantaBanta Wallpapers
-├─ Next Wallhere Wallpaper
-├─ Open Wallhere Wallpapers
-└─ Edit SantaBanta Categories (categories.txt)
+├─ Edit SantaBanta Categories (categories.txt)
+├─ Next Wallhere Wallpaper (Random)
+├─ Wallhere - Popular Wallpapers
+├─ Wallhere Status
+└─ Open Wallhere Wallpapers
 ```
 
 > **Note:** Status & Re-scrape commands open a visible terminal window so you can read the output. Wallpaper actions run silently via `run_silent.vbs`.
