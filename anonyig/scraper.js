@@ -60,17 +60,28 @@ class AnonyIGScraper {
         try {
             // Intercept background API responses
             page.on('response', async (res) => {
+                if (res.request().method() === 'OPTIONS') return;
                 const url = res.url();
                 try {
                     if (url.includes('/api/v1/instagram/userInfo')) {
-                        userInfoData = await res.json();
-                        console.log(`[Scraper] Captured userInfo for "@${cleanName}".`);
+                        const json = await res.json();
+                        if (json && (json.result || json.user)) {
+                            userInfoData = json;
+                            console.log(`[Scraper] Captured userInfo for "@${cleanName}".`);
+                        }
                     } else if (url.includes('/api/v1/instagram/postsV2') || url.includes('/api/v1/instagram/posts')) {
-                        postsData = await res.json();
-                        console.log(`[Scraper] Captured posts feed for "@${cleanName}".`);
+                        const json = await res.json();
+                        if (json && (json.result?.edges?.length || (Array.isArray(json.result) && json.result.length) || json.items?.length)) {
+                            postsData = json;
+                            const count = json.result?.edges?.length || (Array.isArray(json.result) ? json.result.length : json.items?.length);
+                            console.log(`[Scraper] Captured posts feed (${count} posts) for "@${cleanName}".`);
+                        }
                     } else if (url.includes('/api/v1/instagram/stories')) {
-                        storiesData = await res.json();
-                        console.log(`[Scraper] Captured active stories for "@${cleanName}".`);
+                        const json = await res.json();
+                        if (json && json.result) {
+                            storiesData = json;
+                            console.log(`[Scraper] Captured active stories for "@${cleanName}".`);
+                        }
                     }
                 } catch (e) {}
             });
@@ -90,13 +101,37 @@ class AnonyIGScraper {
             const btnSelector = '.search-form__button';
             await page.click(btnSelector);
 
-            // Wait for posts/userInfo API response or timeout
+            // Wait for posts/userInfo API response or DOM render
             const startTime = Date.now();
             while (Date.now() - startTime < config.API_WAIT_TIMEOUT_MS) {
-                if (postsData && userInfoData) break;
-                // If userInfoData is captured and we gave sufficient time for posts (or private profile)
-                if (userInfoData && Date.now() - startTime > 4000) break;
-                await new Promise(r => setTimeout(r, 400));
+                if (postsData && userInfoData) {
+                    await new Promise(r => setTimeout(r, 1500));
+                    break;
+                }
+
+                // Check if search results container or download buttons rendered in DOM
+                const hasSearchResult = await page.evaluate(() => {
+                    const hasDownloading = document.body.innerText.includes('We are downloading the profile');
+                    const hasButtons = document.querySelectorAll('a.download-btn, .button__download').length > 0;
+                    const hasPosts = document.querySelectorAll('img[src*="media.anonyig.com"], img[src*="cdninstagram.com"]').length > 1;
+                    return !hasDownloading && (hasButtons || hasPosts);
+                }).catch(() => false);
+
+                if (postsData && hasSearchResult) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    break;
+                }
+
+                // If private profile or no posts available, but userInfo is captured and downloading message is gone
+                const isStillDownloading = await page.evaluate(() => {
+                    return document.body.innerText.includes('We are downloading the profile');
+                }).catch(() => false);
+
+                if (userInfoData && !isStillDownloading && Date.now() - startTime > 20000) {
+                    break;
+                }
+
+                await new Promise(r => setTimeout(r, 500));
             }
 
             // If stories requested or available, check stories tab
@@ -111,13 +146,15 @@ class AnonyIGScraper {
                 } catch (e) {}
             }
 
-            // Also extract any direct image elements from DOM as fallback
+            // Also extract any direct image elements / download buttons from DOM as fallback
             const domElements = await page.evaluate(() => {
                 const items = [];
-                document.querySelectorAll('img, a.download-btn, a[href*="media.anonyig.com"]').forEach(el => {
+                document.querySelectorAll('img, a.download-btn, a[href*="media.anonyig.com"], a[href*="cdninstagram.com"]').forEach(el => {
                     const src = el.src || el.href;
-                    if (src && (src.includes('cdninstagram.com') || src.includes('media.anonyig.com'))) {
-                        items.push(src);
+                    if (src && (src.includes('cdninstagram.com') || src.includes('media.anonyig.com') || src.includes('fbcdn.net'))) {
+                        if (!src.includes('logo.png') && !src.includes('search-icon') && !src.includes('favicon') && !src.includes('item-')) {
+                            items.push(src);
+                        }
                     }
                 });
                 return items;
@@ -125,7 +162,7 @@ class AnonyIGScraper {
 
             domElements.forEach(u => domImageUrls.add(u));
 
-            // Extract high-resolution images from structured API JSON
+            // Extract high-resolution images from structured API JSON & DOM
             const images = this.extractImagesFromResponses({
                 userInfoData,
                 postsData,
@@ -156,19 +193,21 @@ class AnonyIGScraper {
         const seenUrls = new Set();
 
         const addImage = (item) => {
-            const primaryUrl = item.url || item.downloadUrl;
+            const primaryUrl = item.url || item.downloadUrl || item.download_url;
             if (!primaryUrl || seenUrls.has(primaryUrl)) return;
             seenUrls.add(primaryUrl);
             images.push(item);
         };
 
-        // 1. Process posts and carousels
+        // 1. Process posts and carousels (supports modern XDTMediaDict as well as legacy GraphSidecar)
         if (postsData) {
             let edges = [];
             if (postsData.result && postsData.result.edges) {
                 edges = postsData.result.edges;
             } else if (Array.isArray(postsData.result)) {
                 edges = postsData.result;
+            } else if (postsData.items && Array.isArray(postsData.items)) {
+                edges = postsData.items;
             } else if (Array.isArray(postsData)) {
                 edges = postsData;
             }
@@ -177,43 +216,86 @@ class AnonyIGScraper {
                 const node = edge.node || edge;
                 if (!node) continue;
 
-                const isSidecar = node.__typename === 'GraphSidecar' || !!node.edge_sidecar_to_children;
-                const isVideo = node.is_video;
+                // 1.1 Carousel media (modern Instagram API / XDTMediaDict carousel)
+                if (node.carousel_media && Array.isArray(node.carousel_media)) {
+                    for (const item of node.carousel_media) {
+                        // Skip pure videos
+                        if (item.media_type === 2 || (item.video_versions && item.video_versions.length > 0 && !item.image_versions2)) continue;
+                        
+                        const candidates = (item.image_versions2?.candidates || []).slice();
+                        candidates.sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)));
+                        const bestCandidate = candidates[0] || null;
+                        const imgUrl = bestCandidate?.url || item.display_url || item.url;
+                        const downloadUrl = bestCandidate?.url_downloadable || bestCandidate?.url_wrapped || item.download_url || imgUrl;
 
-                if (isSidecar && node.edge_sidecar_to_children) {
+                        if (imgUrl) {
+                            addImage({
+                                id: String(item.id || item.pk || `${node.id || node.pk}_c`),
+                                postId: String(node.id || node.pk),
+                                code: node.code || node.shortcode,
+                                url: imgUrl,
+                                downloadUrl: downloadUrl,
+                                width: bestCandidate?.width || item.original_width || 1080,
+                                height: bestCandidate?.height || item.original_height || 1080,
+                                type: 'carousel_slide'
+                            });
+                        }
+                    }
+                }
+                // 1.2 Legacy Sidecar (GraphSidecar with edge_sidecar_to_children)
+                else if (node.edge_sidecar_to_children?.edges) {
                     const children = node.edge_sidecar_to_children.edges || [];
                     for (const cEdge of children) {
                         const cNode = cEdge.node || cEdge;
                         if (!cNode || cNode.is_video) continue;
 
-                        const resources = cNode.display_resources || [];
-                        const bestRes = resources.length > 0 ? resources[resources.length - 1] : { src: cNode.display_url };
-                        
-                        addImage({
-                            id: cNode.id || `${node.id}_child`,
-                            postId: node.id,
-                            shortcode: node.shortcode,
-                            url: bestRes.src || cNode.display_url,
-                            downloadUrl: bestRes.url_downloadable || bestRes.url_wrapped || bestRes.src || cNode.display_url,
-                            width: bestRes.config_width || (cNode.dimensions ? cNode.dimensions.width : 1080),
-                            height: bestRes.config_height || (cNode.dimensions ? cNode.dimensions.height : 1080),
-                            type: 'carousel_slide'
-                        });
-                    }
-                } else if (!isVideo) {
-                    const resources = node.display_resources || [];
-                    const bestRes = resources.length > 0 ? resources[resources.length - 1] : { src: node.display_url };
+                        const resources = (cNode.display_resources || []).slice();
+                        resources.sort((a, b) => ((b.config_width || b.width || 0) * (b.config_height || b.height || 0)) - ((a.config_width || a.width || 0) * (a.config_height || a.height || 0)));
+                        const bestRes = resources[0] || null;
+                        const imgUrl = bestRes?.src || cNode.display_url;
 
-                    addImage({
-                        id: node.id || node.shortcode,
-                        postId: node.id,
-                        shortcode: node.shortcode,
-                        url: bestRes.src || node.display_url,
-                        downloadUrl: bestRes.url_downloadable || bestRes.url_wrapped || bestRes.src || node.display_url,
-                        width: bestRes.config_width || (node.dimensions ? node.dimensions.width : 1080),
-                        height: bestRes.config_height || (node.dimensions ? node.dimensions.height : 1080),
-                        type: 'post'
-                    });
+                        if (imgUrl) {
+                            addImage({
+                                id: String(cNode.id || `${node.id}_child`),
+                                postId: String(node.id),
+                                code: node.shortcode || node.code,
+                                url: imgUrl,
+                                downloadUrl: bestRes?.url_downloadable || bestRes?.url_wrapped || bestRes?.src || cNode.display_url,
+                                width: bestRes?.config_width || (cNode.dimensions ? cNode.dimensions.width : 1080),
+                                height: bestRes?.config_height || (cNode.dimensions ? cNode.dimensions.height : 1080),
+                                type: 'carousel_slide'
+                            });
+                        }
+                    }
+                }
+                // 1.3 Single Photo / Post (Modern XDTMediaDict or Legacy)
+                else {
+                    const isVideo = node.media_type === 2 || node.is_video || (node.video_versions && node.video_versions.length > 0 && !node.image_versions2);
+                    if (!isVideo) {
+                        const candidates = (node.image_versions2?.candidates || []).slice();
+                        candidates.sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)));
+                        const bestCandidate = candidates[0] || null;
+
+                        const resources = (node.display_resources || []).slice();
+                        resources.sort((a, b) => ((b.config_width || b.width || 0) * (b.config_height || b.height || 0)) - ((a.config_width || a.width || 0) * (a.config_height || a.height || 0)));
+                        const bestRes = resources[0] || null;
+
+                        const imgUrl = bestCandidate?.url || bestRes?.src || node.display_url || node.url;
+                        const downloadUrl = bestCandidate?.url_downloadable || bestCandidate?.url_wrapped || bestRes?.url_downloadable || bestRes?.url_wrapped || node.download_url || imgUrl;
+
+                        if (imgUrl) {
+                            addImage({
+                                id: String(node.id || node.pk || node.code || node.shortcode),
+                                postId: String(node.id || node.pk),
+                                code: node.code || node.shortcode,
+                                url: imgUrl,
+                                downloadUrl: downloadUrl,
+                                width: bestCandidate?.width || bestRes?.config_width || (node.dimensions ? node.dimensions.width : 1080),
+                                height: bestCandidate?.height || bestRes?.config_height || (node.dimensions ? node.dimensions.height : 1080),
+                                type: 'post'
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -222,22 +304,27 @@ class AnonyIGScraper {
         if (storiesData && storiesData.result) {
             const storyList = Array.isArray(storiesData.result) ? storiesData.result : [storiesData.result];
             for (const story of storyList) {
-                if (story.is_video) continue;
-                const storyUrl = story.display_url || story.image_versions2?.candidates?.[0]?.url || story.url;
+                if (story.is_video || story.media_type === 2) continue;
+                const candidates = (story.image_versions2?.candidates || []).slice();
+                candidates.sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)));
+                const bestCandidate = candidates[0] || null;
+                const storyUrl = bestCandidate?.url || story.display_url || story.url;
+                const downloadUrl = bestCandidate?.url_downloadable || bestCandidate?.url_wrapped || story.download_url || storyUrl;
+
                 if (storyUrl) {
                     addImage({
-                        id: story.id || `story_${Date.now()}`,
+                        id: String(story.id || story.pk || `story_${Date.now()}`),
                         url: storyUrl,
-                        downloadUrl: story.download_url || storyUrl,
-                        width: story.dimensions?.width || 1080,
-                        height: story.dimensions?.height || 1920,
+                        downloadUrl: downloadUrl,
+                        width: bestCandidate?.width || story.dimensions?.width || 1080,
+                        height: bestCandidate?.height || story.dimensions?.height || 1920,
                         type: 'story'
                     });
                 }
             }
         }
 
-        // 3. Process HD Profile Picture from userInfo (crucial for private profiles or profile pic avatars)
+        // 3. Process HD Profile Picture from userInfo
         if (userInfoData) {
             let user = null;
             if (userInfoData.result && Array.isArray(userInfoData.result) && userInfoData.result[0]) {
@@ -252,8 +339,9 @@ class AnonyIGScraper {
 
             if (user && (user.hd_profile_pic_url_info || user.hd_profile_pic_versions || user.profile_pic_url)) {
                 const hdInfo = user.hd_profile_pic_url_info;
-                const hdVersions = user.hd_profile_pic_versions || [];
-                const highestHdVersion = hdVersions.length > 0 ? hdVersions[hdVersions.length - 1] : null;
+                const hdVersions = (user.hd_profile_pic_versions || []).slice();
+                hdVersions.sort((a, b) => ((b.width || 0) * (b.height || 0)) - ((a.width || 0) * (a.height || 0)));
+                const highestHdVersion = hdVersions[0] || null;
 
                 const profilePicUrl = hdInfo?.url || highestHdVersion?.url || user.profile_pic_url_hd || user.profile_pic_url;
                 const profilePicDownloadUrl = hdInfo?.url_downloadable || hdInfo?.url_wrapped || highestHdVersion?.url_downloadable || highestHdVersion?.url_wrapped || user.profile_pic_url_downloadable || user.profile_pic_url_wrapped || profilePicUrl;
@@ -272,10 +360,9 @@ class AnonyIGScraper {
         }
 
         // 4. Fallback from DOM image elements
-        if (images.length === 0 && domImageUrls.length > 0) {
+        if (images.length <= 1 && domImageUrls.length > 0) {
             for (const u of domImageUrls) {
-                // Ignore tiny icons / favicons
-                if (u.includes('favicon') || u.includes('icon') || u.includes('logo.png')) continue;
+                if (u.includes('favicon') || u.includes('icon') || u.includes('logo.png') || u.includes('item-')) continue;
                 addImage({
                     id: `dom_${Math.abs(u.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0))}`,
                     url: u,
@@ -300,9 +387,9 @@ class AnonyIGScraper {
         const item = typeof imageSource === 'string' ? { url: imageSource, downloadUrl: imageSource } : imageSource;
         
         const candidateUrls = Array.from(new Set([
-            item.url,
+            item.downloadUrl,
             item.download_url,
-            item.downloadUrl
+            item.url
         ].filter(Boolean)));
 
         if (candidateUrls.length === 0) {
@@ -324,10 +411,17 @@ class AnonyIGScraper {
                     }
                 });
 
-                if (res.status === 200 && res.data.length >= config.MIN_IMAGE_SIZE_BYTES) {
-                    fs.writeFileSync(destPath, res.data);
-                    console.log(`[Downloader] Saved (${Math.round(res.data.length / 1024)} KB) -> ${destPath}`);
-                    return destPath;
+                if (res.status === 200) {
+                    if (res.data.length >= config.MIN_IMAGE_SIZE_BYTES) {
+                        fs.writeFileSync(destPath, res.data);
+                        console.log(`[Downloader] Saved (${Math.round(res.data.length / 1024)} KB) -> ${destPath}`);
+                        return destPath;
+                    } else {
+                        lastError = new Error(`Downloaded image is too small (${Math.round(res.data.length / 1024)} KB, expected >= ${Math.round(config.MIN_IMAGE_SIZE_BYTES / 1024)} KB). Likely a thumbnail.`);
+                        console.warn(`[Downloader] ${lastError.message}`);
+                    }
+                } else {
+                    lastError = new Error(`HTTP status ${res.status}`);
                 }
             } catch (err) {
                 lastError = err;

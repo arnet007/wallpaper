@@ -32,7 +32,7 @@ const config = {
     CHROME_TEMP_DIR: path.join(__dirname, '.chrome-temp'),
 
     PAGE_TIMEOUT_MS: 45000,
-    API_WAIT_TIMEOUT_MS: 20000,
+    API_WAIT_TIMEOUT_MS: 40000,
     MIN_IMAGE_SIZE_BYTES: 20480, // 20 KB minimum for valid image
     RE_SCRAPE_DAYS: 7, // Re-scrape if all images used or after 7 days
     USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'

@@ -89,7 +89,7 @@ class WallpaperDatabase {
     }
 
     /**
-     * Parses a single profile line (URL or username)
+     * Parses a single profile line (URL, photo URL, or username)
      */
     parseProfileInput(input) {
         let cleanInput = input.trim();
@@ -100,6 +100,30 @@ class WallpaperDatabase {
             try {
                 const url = new URL(cleanInput);
                 const pathParts = url.pathname.split('/').filter(Boolean);
+
+                // Handle direct photo URLs (e.g. photo.php?fbid=...&set=pb.100009813407456... or /photo/?fbid=...)
+                if (url.pathname.includes('photo.php') || url.pathname.includes('/photo/') || url.pathname.includes('/photo')) {
+                    const setParam = url.searchParams.get('set') || '';
+                    const pbMatch = setParam.match(/pb\.([0-9a-zA-Z_]+)/);
+                    if (pbMatch && pbMatch[1]) {
+                        const id = pbMatch[1];
+                        return {
+                            id: id,
+                            name: id,
+                            url: `https://www.facebook.com/${id}`,
+                            photosUrl: `https://www.facebook.com/${id}/photos`
+                        };
+                    }
+                    const fbid = url.searchParams.get('fbid');
+                    if (fbid) {
+                        return {
+                            id: `photo_${fbid}`,
+                            name: `Photo ${fbid}`,
+                            url: cleanInput,
+                            photosUrl: cleanInput
+                        };
+                    }
+                }
 
                 // Handle /profile.php?id=100012345678
                 if (url.pathname.includes('profile.php')) {
@@ -163,11 +187,12 @@ class WallpaperDatabase {
     /**
      * Adds scraped image URLs to a profile in the DB, deduplicating and preserving existing state
      */
-    addScrapedImages(profileId, profileUrl, newImageUrls) {
+    addScrapedImages(profileId, profileUrl, newImageUrls, profileDisplayName = null) {
         const db = this.loadDb();
         if (!db.profiles[profileId]) {
             db.profiles[profileId] = {
                 profile_id: profileId,
+                display_name: profileDisplayName || profileId,
                 photos_url: profileUrl,
                 last_scraped_at: new Date().toISOString(),
                 total_images: 0,
@@ -179,6 +204,9 @@ class WallpaperDatabase {
         const profile = db.profiles[profileId];
         profile.photos_url = profileUrl;
         profile.last_scraped_at = new Date().toISOString();
+        if (profileDisplayName) {
+            profile.display_name = profileDisplayName;
+        }
 
         const existingMap = new Map();
         for (const img of profile.images) {
@@ -277,6 +305,7 @@ class WallpaperDatabase {
                     const selected = unusedImages[0];
                     return {
                         profileId: pid,
+                        profileName: profile.display_name || profile.name || pid,
                         image: selected
                     };
                 }

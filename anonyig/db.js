@@ -146,17 +146,31 @@ class AnonyIGDatabase {
         }
 
         let addedCount = 0;
+        let updatedCount = 0;
         for (const item of newImages) {
             const imgId = this.getImageId(item);
             const imgUrl = item.url || item.downloadUrl;
             if (!imgUrl) continue;
 
-            if (!existingMap.has(imgId) && !existingMap.has(imgUrl)) {
+            if (existingMap.has(imgId)) {
+                const existing = existingMap.get(imgId);
+                // Upgrade to higher resolution or fresher URLs
+                const newRes = (item.width || 0) * (item.height || 0);
+                const oldRes = (existing.width || 0) * (existing.height || 0);
+                if (newRes >= oldRes || !existing.download_url) {
+                    existing.url = imgUrl;
+                    existing.download_url = item.downloadUrl || item.download_url || imgUrl;
+                    existing.width = item.width || existing.width;
+                    existing.height = item.height || existing.height;
+                    existing.scraped_at = new Date().toISOString();
+                    updatedCount++;
+                }
+            } else if (!existingMap.has(imgUrl)) {
                 const newEntry = {
                     id: imgId,
                     url: imgUrl,
-                    download_url: item.downloadUrl || imgUrl,
-                    shortcode: item.shortcode || null,
+                    download_url: item.downloadUrl || item.download_url || imgUrl,
+                    shortcode: item.shortcode || item.code || null,
                     width: item.width || null,
                     height: item.height || null,
                     type: item.type || 'post',
@@ -175,7 +189,7 @@ class AnonyIGDatabase {
         profile.used_count = profile.images.filter(img => img.used).length;
 
         this.saveDb(db);
-        return { addedCount, total: profile.total_images, used: profile.used_count };
+        return { addedCount, updatedCount, total: profile.total_images, used: profile.used_count };
     }
 
     needsRescrape(username, force = false, reScrapeDays = config.RE_SCRAPE_DAYS) {
@@ -185,7 +199,7 @@ class AnonyIGDatabase {
         const db = this.loadDb();
         const profile = db.profiles[clean];
 
-        if (!profile || !profile.images || profile.images.length === 0) {
+        if (!profile || !profile.images || profile.images.length <= 1) {
             return true;
         }
 

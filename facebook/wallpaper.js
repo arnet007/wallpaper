@@ -76,7 +76,10 @@ async function scrapeProfile(scraper, profile, maxScrolls, cleanOld = false) {
     console.log(`========================================`);
 
     try {
-        const urls = await scraper.scrapePhotos(profile.photosUrl, maxScrolls);
+        const scrapeResult = await scraper.scrapePhotos(profile.photosUrl, maxScrolls);
+        const urls = Array.isArray(scrapeResult) ? scrapeResult : (scrapeResult.urls || []);
+        const displayName = (!Array.isArray(scrapeResult) && scrapeResult.displayName) ? scrapeResult.displayName : null;
+
         if (urls && urls.length > 0) {
             if (cleanOld) {
                 console.log(`[DB] Clearing old entries for "${profile.id}" to store full-resolution photos.`);
@@ -88,7 +91,10 @@ async function scrapeProfile(scraper, profile, maxScrolls, cleanOld = false) {
                     db.saveDb(currentDb);
                 }
             }
-            const result = db.addScrapedImages(profile.id, profile.photosUrl, urls);
+            const result = db.addScrapedImages(profile.id, profile.photosUrl, urls, displayName);
+            if (displayName) {
+                console.log(`[DB] Captured display name: "${displayName}" for profile "${profile.id}"`);
+            }
             console.log(`[DB] Profile "${profile.id}" updated: +${result.addedCount} high-res images (Total: ${result.total}, Used: ${result.used})`);
             return result;
         } else {
@@ -221,8 +227,9 @@ async function run(options = {}) {
             return;
         }
 
-        const { profileId, image } = selection;
-        console.log(`[Wallpaper] Selected photo ID: ${image.id} from profile: ${profileId}`);
+        const { profileId, profileName, image } = selection;
+        const displayName = profileName || profileId;
+        console.log(`[Wallpaper] Selected photo ID: ${image.id} from profile: ${displayName}`);
 
         const fileName = `${profileId}_${image.id}.jpg`;
         const localFilePath = path.join(config.WALLPAPERS_DIR, fileName);
@@ -231,7 +238,7 @@ async function run(options = {}) {
             await downloadImage(image.url, localFilePath);
             
             // Process portrait / narrow image with aesthetic blurred side fills and top-right Facebook badge
-            const finalWallpaperPath = await imageProcessor.processForDesktop(localFilePath, profileId);
+            const finalWallpaperPath = await imageProcessor.processForDesktop(localFilePath, displayName);
 
             applyDesktopWallpaper(finalWallpaperPath);
             db.markWallpaperUsed(profileId, image.id, finalWallpaperPath);

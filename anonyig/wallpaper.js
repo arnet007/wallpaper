@@ -119,30 +119,50 @@ class AnonyIGWallpaperChanger {
             throw new Error(`Could not find an available wallpaper for "@${activeProfile}".`);
         }
 
-        const { username, image } = item;
-        console.log(`\n[Selected] Next wallpaper from "@${username}": Image ID ${image.id}`);
+        let selectedItem = item;
+        let downloadedPath = null;
+        let finalWallpaperPath = null;
+        let attempts = 0;
+        const maxAttempts = 5;
 
-        // Download raw image
-        const timestamp = Date.now();
-        const rawFileName = `ig_${username}_${image.id}_${timestamp}_raw.jpg`;
-        const rawFilePath = path.join(config.WALLPAPERS_DIR, rawFileName);
+        while (selectedItem && selectedItem.image && attempts < maxAttempts) {
+            const { username, image } = selectedItem;
+            console.log(`\n[Selected] Next wallpaper from "@${username}": Image ID ${image.id}`);
 
-        await this.scraper.downloadImage(image, rawFilePath);
+            const timestamp = Date.now();
+            const rawFileName = `ig_${username}_${image.id}_${timestamp}_raw.jpg`;
+            const rawFilePath = path.join(config.WALLPAPERS_DIR, rawFileName);
 
-        // Aesthetic Processing: portrait blur fill + frosted Instagram SVG badge
-        const finalWallpaperPath = await this.imageProcessor.processForDesktop(rawFilePath, username);
+            try {
+                await this.scraper.downloadImage(image, rawFilePath);
+                downloadedPath = rawFilePath;
 
-        // Apply wallpaper
-        this.applyWallpaper(finalWallpaperPath);
+                // Aesthetic Processing: portrait blur fill + frosted Instagram SVG badge
+                finalWallpaperPath = await this.imageProcessor.processForDesktop(rawFilePath, username);
 
-        // Mark as used in database
-        this.db.markWallpaperUsed(username, image.id, finalWallpaperPath);
+                // Apply wallpaper
+                this.applyWallpaper(finalWallpaperPath);
 
-        // Clean up older wallpaper files
-        this.cleanupOldWallpapers([rawFilePath, finalWallpaperPath]);
+                // Mark as used in database
+                this.db.markWallpaperUsed(username, image.id, finalWallpaperPath);
 
-        console.log(`\n[✔] Successfully set desktop wallpaper to: ${finalWallpaperPath}`);
-        console.log(`[✔] Instagram Source: @${username}`);
+                // Clean up older wallpaper files
+                this.cleanupOldWallpapers([rawFilePath, finalWallpaperPath]);
+
+                console.log(`\n[✔] Successfully set desktop wallpaper to: ${finalWallpaperPath}`);
+                console.log(`[✔] Instagram Source: @${username}`);
+                break;
+            } catch (err) {
+                console.warn(`[Downloader] Failed on image ID ${image.id}: ${err.message}. Trying next image...`);
+                this.db.markWallpaperUsed(username, image.id, null); // Skip problematic image
+                selectedItem = this.db.getNextUnusedWallpaper(targetProfile);
+                attempts++;
+            }
+        }
+
+        if (!finalWallpaperPath) {
+            throw new Error(`Failed to download and apply any wallpaper after ${attempts} attempts.`);
+        }
 
         // Close scraper browser
         await this.scraper.close();
