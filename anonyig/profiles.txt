@@ -1,0 +1,25 @@
+# Instagram Profiles for Wallpaper Changer (AnonyIG)
+# Add Instagram usernames or full profile URLs (one per line)
+# Lines starting with # are comments and ignored.
+
+aliaabhatt
+shraddhakapoor
+dishapatani
+kritisanon
+kiaraaliaadvani
+deepikapadukone
+katrinakaif
+ananyapanday
+janhvikapoor
+rashmika_mandanna
+poojahegde
+samantharuthprabhuoffl
+mrunalthakur
+tamannaahspeaks
+tripti_dimri
+
+s_ragini.1
+
+ash4real
+
+_.saita.__

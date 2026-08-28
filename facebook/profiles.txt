@@ -1,7 +1,14 @@
 # Facebook Profiles to scrape wallpapers from
-# You can add profile names (e.g. rajnandinideyrj) or full URLs (e.g. https://www.facebook.com/rajnandinideyrj/photos)
+# You can add profile names (e.g. anveshi25) or full URLs (e.g. https://www.facebook.com/anveshi25/photos)
 # One entry per line. Lines starting with # are ignored.
 
-https://www.facebook.com/rajnandinideyrj/photos
-https://www.facebook.com/jyotshnapanda.bulbul/photos
 https://www.facebook.com/Aasthasharma21/photos
+https://www.facebook.com/anveshi25/photos
+
+https://www.facebook.com/rajkumariakriti/photos
+
+https://www.facebook.com/yami.ripta.7/photos
+
+https://www.facebook.com/Meghanadutta000/photos
+
+https://www.facebook.com/61592601994451/photos

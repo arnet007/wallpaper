@@ -56,6 +56,9 @@ cd C:\Users\sumit\projects\wallpaper\santabanta
   node universal.js animals
   ```
   ```powershell
+  node universal.js indian-celebrities-f
+  ```
+  ```powershell
   node universal.js bollywood-movies
   ```
 

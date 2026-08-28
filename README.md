@@ -1,13 +1,16 @@
 # 🖼️ Wallpaper Changer Suite
 
-Turn your Windows desktop into an automatic wallpaper rotator using photos from **Facebook profiles** and **SantaBanta galleries**.
+Turn your Windows desktop into an automatic wallpaper rotator using photos from **Instagram (AnonyIG)**, **Facebook profiles**, **SantaBanta galleries**, and **4kwallpapers.com**.
 
-The repo contains two independent, self-contained projects:
+The repo contains four independent, self-contained projects:
 
 | Project | Directory | What it does |
 | :--- | :--- | :--- |
+| **Instagram Wallpaper Changer** | [`anonyig/`](./anonyig) | Scrapes high-resolution photos and carousels anonymously from Instagram profiles via AnonyIG, adds aesthetic widescreen blur & Instagram badges, and rotates desktop wallpapers. |
 | **Facebook Wallpaper Changer** | [`facebook/`](./facebook) | Scrapes high-resolution photos from Facebook profiles, cycles them as your wallpaper, and auto re-scrapes every 7 days. |
 | **SantaBanta Wallpaper Changer** | [`santabanta/`](./santabanta) | Downloads full-HD wallpapers from SantaBanta — both targeted (celebrity/category) and universal random mode. |
+| **4K Wallpapers Nature Changer** | [`4kwallpapers/`](./4kwallpapers) | Downloads a random true-4K wallpaper from the 4kwallpapers.com Nature category and sets it as your wallpaper. |
+| **Wallhere Wallpaper Changer** | [`wallhere/`](./wallhere) | Fetches random wallpapers from Wallhere.com, processes them for desktop use (portrait/landscape handling), and sets them as your wallpaper. |
 
 ---
 
@@ -15,6 +18,15 @@ The repo contains two independent, self-contained projects:
 
 ```text
 wallpaper/
+├── anonyig/                   # Instagram / AnonyIG project (self-contained)
+│   ├── wallpaper.js           #   Main CLI (scrape, cycle, status, stories…)
+│   ├── scraper.js             #   Puppeteer network & JSON feed scraper
+│   ├── db.js                  #   JSON tracking database & cycle reset
+│   ├── image_processor.js     #   sharp processing (blur side-fills + Instagram badge)
+│   ├── profiles.txt           #   Target Instagram profiles list
+│   ├── run_wallpaper.bat      #   Double-click launcher
+│   ├── test/                  #   7 unit tests (node:test)
+│   └── README.md
 ├── facebook/                  # Facebook project (self-contained)
 │   ├── wallpaper.js           #   Main CLI (scrape, cycle, restore, status…)
 │   ├── auth.js                #   One-time cookie login
@@ -33,10 +45,37 @@ wallpaper/
 │   ├── run_wallpaper.bat      #   Targeted-mode launcher
 │   ├── test/                  #   14 unit tests (node:test)
 │   └── README.md
+├── 4kwallpapers/              # 4kwallpapers.com project (self-contained)
+│   ├── wallpaper.js           #   Main CLI (random nature 4K download + set, status…)
+│   ├── scraper.js / db.js / image_processor.js
+│   ├── run_wallpaper.bat      #   Double-click launcher
+│   ├── run_silent.vbs         #   Silent launcher (Task Scheduler)
+│   ├── test/                  #   15 unit tests (node:test)
+│   └── README.md
 ├── install_context_menu.bat   # 🖱️ Install "Change Desktop Wallpaper" right-click menu
 ├── uninstall_context_menu.bat # 🖱️ Uninstall the right-click menu
 └── .gitignore                 # Excludes cookies, wallpapers, node_modules, runtime DBs
 ```
+
+---
+
+## 🚀 Quick Start (Instagram / AnonyIG)
+
+```powershell
+cd anonyig
+
+# 1. Rotate through configured profiles in profiles.txt
+node wallpaper.js
+
+# 2. Target a specific Instagram user or profile URL
+node wallpaper.js aliaabhatt
+node wallpaper.js https://www.instagram.com/shraddhakapoor/
+
+# 3. View status / image counts
+node wallpaper.js --status
+```
+
+See [`anonyig/README.md`](./anonyig/README.md) for details.
 
 ---
 
@@ -78,6 +117,22 @@ See [`santabanta/README.md`](./santabanta/README.md) for details.
 
 ---
 
+## 🚀 Quick Start (4kwallpapers.com)
+
+```powershell
+# Random 4K nature wallpaper from 4kwallpapers.com
+cd 4kwallpapers
+npm install        # one-time
+node wallpaper.js
+
+# Show stats (applied count, latest wallpaper)
+node wallpaper.js --status
+```
+
+See [`4kwallpapers/README.md`](./4kwallpapers/README.md) for details.
+
+---
+
 ## 🖱️ Right-Click Desktop Context Menu
 
 Install a cascading "Change Desktop Wallpaper" menu on your desktop background:
@@ -88,17 +143,25 @@ double-click install_context_menu.bat
 
 Menu structure:
 
-```
+```text
 Change Desktop Wallpaper
+├─ Next Instagram Wallpaper (AnonyIG)
+├─ Instagram Status
+├─ Re-scrape Instagram (AnonyIG)
+├─ Open Instagram Wallpapers
+├─ Edit Instagram Profiles (profiles.txt)
 ├─ Next Facebook Wallpaper
 ├─ Facebook Status
 ├─ Re-scrape Facebook (High-Res)
 ├─ Open Facebook Wallpapers
 ├─ Edit Facebook Profiles (profiles.txt)
 ├─ Next SantaBanta (Random)
-├─ SantaBanta - Cars / Nature / Outdoors / Bollywood
+├─ SantaBanta - Indian Celebrities (Female)
+├─ SantaBanta - Bollywood / Cars / Nature / Outdoors
 ├─ SantaBanta Status
 ├─ Open SantaBanta Wallpapers
+├─ Next Wallhere Wallpaper
+├─ Open Wallhere Wallpapers
 └─ Edit SantaBanta Categories (categories.txt)
 ```
 
@@ -110,14 +173,20 @@ Remove the menu anytime with `uninstall_context_menu.bat`.
 
 ## 🧪 Running Tests
 
-Both projects use Node's built-in test runner — no extra dependencies.
+All projects use Node's built-in test runner — no extra test frameworks needed.
 
 ```powershell
+# Instagram project (7 tests)
+npm test --prefix anonyig
+
 # Facebook project (23 tests)
 npm test --prefix facebook
 
 # SantaBanta project (14 tests)
 npm test --prefix santabanta
+
+# 4kwallpapers project (15 tests)
+npm test --prefix 4kwallpapers
 ```
 
 ---
@@ -125,6 +194,7 @@ npm test --prefix santabanta
 ## 🔒 Security Notes
 
 - `cookies.json` (Facebook session) is **excluded via `.gitignore`** and must never be committed. Keep it local!
+- AnonyIG fetches public Instagram posts anonymously without requiring Instagram logins.
 - Downloaded wallpaper images, `node_modules/`, and runtime JSON databases are also git-ignored.
 
 ## ✅ Requirements

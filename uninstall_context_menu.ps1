@@ -1,6 +1,6 @@
 $locations = @(
     "HKCU:\Software\Classes\DesktopBackground\Shell\WallpaperChanger",
-    "HKCU:\Software\Classes\Directory\Background\shell\WallpaperChanger"
+    "HKCU:\Software\Classes\Directory\Background\Shell\WallpaperChanger"
 )
 
 foreach ($loc in $locations) {

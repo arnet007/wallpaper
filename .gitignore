@@ -26,6 +26,8 @@ wallpapers/
 wallpapers_db.json
 **/wallpapers_db.json
 **/universal_db.json
+wallhere/db/
+**/db/db.json
 
 # --- Logs & OS ---
 *.log

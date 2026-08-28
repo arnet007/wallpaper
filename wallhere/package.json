@@ -1,0 +1,22 @@
+{
+  "name": "wallhere",
+  "version": "1.0.0",
+  "description": "Random wallpaper downloader and setter for Wallhere.com",
+  "main": "wallhere.js",
+  "scripts": {
+    "start": "node wallhere.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["wallpaper", "wallhere", "desktop", "background"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.20.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^17.4.2",
+    "puppeteer-core": "^25.9.0",
+    "replicate": "^1.4.0",
+    "sharp": "^0.35.4"
+  }
+}

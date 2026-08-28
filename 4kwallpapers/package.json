@@ -1,8 +1,8 @@
 {
-  "name": "wallpaper",
+  "name": "wallpapers-4k",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Download and set random 4K nature wallpapers from 4kwallpapers.com",
+  "main": "wallpaper.js",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""
   },
@@ -12,9 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.19.0",
-    "dotenv": "^17.4.2",
-    "puppeteer-core": "^25.8.0",
-    "replicate": "^1.4.0",
+    "cheerio": "^1.2.0",
     "sharp": "^0.35.3"
   }
 }
